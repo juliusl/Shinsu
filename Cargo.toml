@@ -1,0 +1,15 @@
+[package]
+name = "shinsu"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+atlier = {path = "../atlier"} # { git = "https://github.com/juliusl/atlier.git" }
+lifec  = { path = "../lifec" } # { git = "https://github.com/juliusl/lifec.git", branch = "pr/serialization" }
+imnodes = { git = "https://github.com/benmkw/imnodes-rs.git" }
+knot = { git = "https://github.com/juliusl/knot.git", branch="main" }
+tokio = { version = "1.19.2", features = ["default", "rt-multi-thread", "sync", "fs", "process", "io-util", "io-std", "macros"] }
+specs = { version = "0.17.0", features = ["default", "derive"] }
+imgui = "0.8.2" 
