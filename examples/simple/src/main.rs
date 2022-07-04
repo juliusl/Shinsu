@@ -25,12 +25,12 @@ fn main() {
     open(
         "shinsu demo", 
         Runtime::default(),
-        Demo(NodeEditor::default(), RuntimeEditor::new(runtime), vec![]),
+        Demo(NodeEditor::default(), RuntimeEditor::new(runtime)),
     );
 }
 
 #[derive(Default)]
-struct Demo(NodeEditor, RuntimeEditor, Vec<Entity>);
+struct Demo(NodeEditor, RuntimeEditor);
 
 
 impl Extension for Demo {
@@ -53,7 +53,9 @@ impl Extension for Demo {
                     app_world, 
                     "demo"
                 ) {
-                    self.2.push(first);
+                    // To enable in the node editor, add the connection component
+                    app_world.write_component::<Connection>()
+                        .insert(first, Connection::default()).ok();
                 }
             }
         });
@@ -65,14 +67,5 @@ impl Extension for Demo {
     fn on_run(&'_ mut self, app_world: &lifec::plugins::World) {
         self.0.on_run(app_world);
         self.1.on_run(app_world);
-
-        let sequences = app_world.read_component::<Sequence>();
-        while let Some(node) = self.2.pop() {
-            if let Some(sequence) = sequences.get(node) {
-                let mut clone = sequence.clone(); 
-                clone.push(node);
-                self.0.add_node(app_world, &clone);
-            }
-        }
     }
 }

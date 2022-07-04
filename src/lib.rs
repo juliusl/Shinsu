@@ -1,6 +1,9 @@
 use imgui::Ui;
 use imnodes::*;
+use specs::Entities;
 use specs::Join;
+use specs::ReadStorage;
+use specs::RunNow;
 use specs::System;
 use specs::World;
 use specs::WorldExt;
@@ -50,6 +53,7 @@ pub type NodeUI = fn(NodeScope, &NodeContext, &ThunkContext, &Ui);
 pub struct NodeEditor {
     dropping: Vec<LinkId>,
     connecting: Vec<Link>,
+    creating: Vec<Sequence>,
     node_index: HashMap<NodeId, Sequence>,
     link_index: HashMap<LinkId, Connection>,
     node_ui: NodeUI,
@@ -186,6 +190,7 @@ impl Default for NodeEditor {
             _connected: HashSet::default(),
             node_index: HashMap::default(),
             link_index: HashMap::default(),
+            creating: vec![],
             connecting: vec![],
             dropping: vec![],
             node_ui: |mut scope, nc, tc, ui| {
@@ -310,6 +315,35 @@ impl Extension for NodeEditor
 
         while let Some(drop) = self.dropping.pop() {
             self.remove_link_by_id(app_world, drop);
+        }
+
+        while let Some(create) = self.creating.pop() {
+            self.add_node(app_world, &create);
+        }
+        
+        self.run_now(app_world);
+    }
+}
+
+impl<'a> System<'a> for NodeEditor {
+    type SystemData = (
+        Entities<'a>,
+        ReadStorage<'a, Sequence>,
+        ReadStorage<'a, Connection>,
+        ReadStorage<'a, NodeContext>,
+    );
+
+    fn run(&mut self, (entities, sequences, connections, nodes): Self::SystemData) {
+        for (entity, sequence, _connection, node) in (
+            &entities, 
+            &sequences, 
+            &connections,
+            nodes.maybe()).join() {
+            if let None = node {
+                let mut clone = sequence.clone();
+                clone.push(entity);
+                self.creating.push(clone);
+            }
         }
     }
 }
