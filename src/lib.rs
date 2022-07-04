@@ -1,15 +1,16 @@
 use imgui::Ui;
 use imnodes::*;
-use lifec::plugins::Connection;
-use specs::Component;
-use specs::DenseVecStorage;
 use specs::Join;
 use specs::System;
 use specs::World;
 use specs::WorldExt;
-use lifec::plugins::ThunkContext;
-use lifec::plugins::Sequence;
+use specs::Component;
 use specs::WriteStorage;
+use specs::DenseVecStorage;
+use lifec::plugins::Sequence;
+use lifec::plugins::Connection;
+use lifec::plugins::ThunkContext;
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use atlier::system::Extension;
