@@ -71,9 +71,6 @@ impl Extension for Demo {
             if let Some(sequence) = sequences.get(node) {
                 let mut clone = sequence.clone(); 
                 clone.push(node);
-
-                eprintln!("{:#?}", clone);
-
                 self.0.add_node(app_world, &clone);
             }
         }

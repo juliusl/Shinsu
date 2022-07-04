@@ -57,6 +57,12 @@ pub struct NodeEditor {
 }
 
 impl NodeEditor {
+    /// Set's the ui to display on each node
+    /// By default only input/output are shown
+    pub fn set_ui(&mut self, ui_fn: NodeUI) {
+        self.node_ui = ui_fn;
+    }
+
     /// Adds a new node to represent the sequence
     pub fn add_node(&mut self, app_world: &World, sequence: &Sequence) {
         let context = NodeContext(
@@ -178,7 +184,11 @@ impl Default for NodeEditor {
 
                     if let NodeContext(.., Some(input_pin), Some(output_pin), Some(attribute_id)) = nc {
                         scope.attribute(*attribute_id, ||{
-
+                            let thunk_symbol = tc.block.as_ref()
+                                .find_text("thunk_symbol")
+                                .unwrap_or("entity".to_string());
+                            ui.set_next_item_width(130.0);   
+                            ui.label_text("thunk_symbol", thunk_symbol);
                         });
                         scope.add_input(*input_pin, PinShape::Circle, ||{
                             let label = tc.as_ref()
@@ -210,7 +220,6 @@ impl Extension for NodeEditor
     }
 
     fn configure_app_systems(dispatcher: &mut specs::DispatcherBuilder) {
-
         // linking system to set sequence cursors based on connections
         dispatcher.add(Linker{}, "shinsu/linker", &[]);
     }
