@@ -11,6 +11,7 @@ use lifec::plugins::ThunkContext;
 use lifec::plugins::Sequence;
 use specs::WriteStorage;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use atlier::system::Extension;
 
 /// This component renders a node to the editor
@@ -54,6 +55,7 @@ pub struct NodeEditor {
     editor_context: imnodes::EditorContext,
     idgen: imnodes::IdentifierGenerator,
     _imnodes: imnodes::Context,
+    _connected: HashSet::<NodeId>,
 }
 
 impl NodeEditor {
@@ -97,51 +99,56 @@ impl NodeEditor {
                 Some(NodeContext(_, Some(end_node), Some(end_pin), Some(_), ..)),
             ) = (nodes.get(from), nodes.get(to))
             {
-                eprintln!("\tconnecting");
-                eprintln!("\tfound nodes from: {:?}", from);
-                eprintln!("\tfound nodes to: {:?}", to);
-                let start_node = *start_node;
-                let end_node = *end_node;
-                let start_pin = *start_pin;
-                let end_pin = *end_pin;
-
-                let link = Link {
-                    start_node,
-                    end_node,
-                    start_pin,
-                    end_pin,
-                    craeated_from_snap: true,
-                };
-                let link_entity = app_world
-                    .entities()
-                    .create();
-
-                // Set the next entity as the owner of the link
-                connection.set_owner(link_entity);
-
-                let context = LinkContext(
-                    connection.clone(), 
-                    Some(link),
-                    Some(self.idgen.next_link())
-                );
-
-                let mut links = app_world.write_component::<LinkContext>();
-                match links.insert(link_entity, context.clone()) {
-                    Ok(_) => {
-                        if let Some(link_id) = context.link_id() {
-                            self.link_index.insert(link_id, connection.clone());
+                // TODO currently this is a limitation, to having only 1 node connected to the output
+                if self._connected.insert(*start_node) {
+                    eprintln!("\tconnecting");
+                    eprintln!("\tfound nodes from: {:?}", from);
+                    eprintln!("\tfound nodes to: {:?}", to);
+                    let start_node = *start_node;
+                    let end_node = *end_node;
+                    let start_pin = *start_pin;
+                    let end_pin = *end_pin;
+    
+                    let link = Link {
+                        start_node,
+                        end_node,
+                        start_pin,
+                        end_pin,
+                        craeated_from_snap: true,
+                    };
+                    let link_entity = app_world
+                        .entities()
+                        .create();
+    
+                    // Set the next entity as the owner of the link
+                    connection.set_owner(link_entity);
+    
+                    let context = LinkContext(
+                        connection.clone(), 
+                        Some(link),
+                        Some(self.idgen.next_link())
+                    );
+    
+                    let mut links = app_world.write_component::<LinkContext>();
+                    match links.insert(link_entity, context.clone()) {
+                        Ok(_) => {
+                            if let Some(link_id) = context.link_id() {
+                                self.link_index.insert(link_id, connection.clone());
+                            }
                         }
+                        Err(_) => {}
                     }
-                    Err(_) => {}
-                }
-
-                let mut connections = app_world.write_component::<Connection>();
-                match connections.insert(from, connection.clone()) {
-                    Ok(_) => {
-                        return Some(connection);
-                    },
-                    Err(_) => {
-                    },
+    
+                    let mut connections = app_world.write_component::<Connection>();
+                    match connections.insert(from, connection.clone()) {
+                        Ok(_) => {
+                            return Some(connection);
+                        },
+                        Err(_) => {
+                        },
+                    }
+                } else {
+                    eprintln!("Already connected");
                 }
             }
         }
@@ -156,7 +163,13 @@ impl NodeEditor {
         if let Some(drop) = self.link_index.remove(&link_id) {
             if let Some(drop) = drop.owner() {
                 if let Some(dropped) = links.remove(drop) {
-                   eprintln!("\tdropped {:?}", dropped);
+                    if let LinkContext(_, Some(link), ..) = dropped {
+                        let Link { start_node,.. } = link;
+
+                       if self._connected.remove(&start_node) {
+                            eprintln!("dropped link {:?}",drop );
+                       }
+                    }
                 }
             }
         }
@@ -172,6 +185,7 @@ impl Default for NodeEditor {
             editor_context,
             idgen,
             _imnodes,
+            _connected: HashSet::default(),
             node_index: HashMap::default(),
             link_index: HashMap::default(),
             connecting: vec![],
@@ -181,28 +195,30 @@ impl Default for NodeEditor {
                     scope.add_titlebar(|| {
                         ui.text(node_title);
                     });
+                    let thunk_symbol = tc.block.as_ref()
+                        .find_text("thunk_symbol")
+                        .unwrap_or("entity".to_string());
+                    let mut node_width = 75.0;
+                    if thunk_symbol.len() > 24 {
+                        node_width = 150.0;
+                    }
 
                     if let NodeContext(.., Some(input_pin), Some(output_pin), Some(attribute_id)) = nc {
                         scope.attribute(*attribute_id, ||{
-                            let thunk_symbol = tc.block.as_ref()
-                                .find_text("thunk_symbol")
-                                .unwrap_or("entity".to_string());
-                            ui.set_next_item_width(130.0);   
-                            ui.label_text("thunk_symbol", thunk_symbol);
+                            ui.text(thunk_symbol);
                         });
                         scope.add_input(*input_pin, PinShape::Circle, ||{
                             let label = tc.as_ref()
                                 .find_text("node_input_label")
-                                .unwrap_or("input".to_string());
-
+                                .unwrap_or("start".to_string());
                             ui.text(label);
                         });
+
+                        ui.same_line();
                         scope.add_output(*output_pin, PinShape::CircleFilled, ||{
-                            let label = tc.as_ref()
-                                .find_text("node_output_label")
-                                .unwrap_or("output".to_string());
-                            
-                            ui.text(label);
+                            ui.same_line();                            
+                            ui.set_next_item_width(node_width);   
+                            ui.label_text("cursor", "");
                         })
                     }   
                 }
