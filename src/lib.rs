@@ -101,9 +101,6 @@ impl NodeEditor {
             {
                 // TODO currently this is a limitation, to having only 1 node connected to the output
                 if self._connected.insert(*start_node) {
-                    eprintln!("\tconnecting");
-                    eprintln!("\tfound nodes from: {:?}", from);
-                    eprintln!("\tfound nodes to: {:?}", to);
                     let start_node = *start_node;
                     let end_node = *end_node;
                     let start_pin = *start_pin;
@@ -304,8 +301,6 @@ impl Extension for NodeEditor
                 .node_index
                 .get(&end_node)
                 .and_then(|s| Some(s.clone()));
-
-            println!("{:#?} {:#?}", from, to);
 
             if let (Some(from), Some(to)) = (from, to) {
                 self.add_link(app_world, &from, &to);
