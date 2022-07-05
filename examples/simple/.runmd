@@ -1,0 +1,17 @@
+``` from call
+define test.sh open_file  .symbol read
+```
+
+``` to call
+define test.sh write_file .symbol write
+```
+ 
+``` read open_file
+add file_src    .text test.sh
+add node_title  .text open_test_sh
+```
+
+``` write write_file
+add work_dir    .text test/test2
+add node_title  .text write_test_sh
+```

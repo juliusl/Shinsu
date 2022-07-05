@@ -4,15 +4,10 @@ use lifec::{open, Runtime, editor::*, plugins::*};
 use shinsu::NodeEditor;
 
 fn main() {
-    let project = Project::default();
-
-    let mut runtime = Runtime::new(
-    project.with_block("demo", "call", |c|{
-            c.define("a_timer", "timer").edit_as(Value::TextBuffer("test".to_string()));
-            c.define("b_timer", "timer").edit_as(Value::TextBuffer("test".to_string()));
-    }));
-
+    let mut runtime = Runtime::new(Project::runmd().unwrap_or_default());
     runtime.install::<Call, Timer>();
+    runtime.install::<Call,OpenFile>();
+    runtime.install::<Call, WriteFile>();
 
     runtime.add_config(Config("test", |tc| {
         tc.block.block_name = unique_title("demo");
@@ -51,7 +46,16 @@ impl Extension for Demo {
     
                 if let Some(first) = runtime.create_engine::<Call>(
                     app_world, 
-                    "demo"
+                    "from"
+                ) {
+                    // To enable in the node editor, add the connection component
+                    app_world.write_component::<Connection>()
+                        .insert(first, Connection::default()).ok();
+                }
+
+                if let Some(first) = runtime.create_engine::<Call>(
+                    app_world, 
+                    "to"
                 ) {
                     // To enable in the node editor, add the connection component
                     app_world.write_component::<Connection>()
