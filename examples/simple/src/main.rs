@@ -1,6 +1,8 @@
 
+use std::env::args;
+
 use imgui::Window;
-use lifec::{open, Runtime, editor::*, plugins::*};
+use lifec::{open, start, Runtime, editor::*, plugins::*};
 use shinsu::NodeEditor;
 
 fn main() {
@@ -17,16 +19,34 @@ fn main() {
             .add_int_attr("duration", 2);
     }));
 
-    open(
-        "shinsu demo", 
-        Runtime::default(),
-        Demo(NodeEditor::default(), RuntimeEditor::new(runtime)),
-    );
+    let mut run = false;
+
+    for arg in args() {
+        if arg == "--run" {
+            run = true;
+        }
+    }
+
+    let demo = Demo(NodeEditor::default(), RuntimeEditor::new(runtime));
+    if run {
+        start(demo, "cmdline")
+    } else {
+        open(
+            "shinsu demo", 
+            Runtime::default(),
+            demo,
+        );
+    }
 }
 
 #[derive(Default)]
 struct Demo(NodeEditor, RuntimeEditor);
 
+impl AsRef<Runtime> for Demo {
+    fn as_ref(&self) -> &Runtime {
+       self.1.runtime()
+    }
+}
 
 impl Extension for Demo {
     fn configure_app_world(world: &mut lifec::plugins::World) {

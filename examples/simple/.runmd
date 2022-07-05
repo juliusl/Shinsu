@@ -5,6 +5,12 @@ define test.sh open_file  .symbol read
 ``` to call
 define test.sh write_file .symbol write
 ```
+
+``` cmdline call
+define a_timer timer .text test
+define b_timer timer .text test
+add repeat .enable
+```
  
 ``` read open_file
 add file_src    .text test.sh
