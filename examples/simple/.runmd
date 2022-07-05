@@ -1,3 +1,4 @@
+# Example for connecting in node editor
 ``` from call
 define test.sh open_file  .symbol read
 ```
@@ -5,13 +6,14 @@ define test.sh open_file  .symbol read
 ``` to call
 define test.sh write_file .symbol write
 ```
-
+# Example w/ starting from command line
 ``` cmdline call
 define a_timer timer .text test
 define b_timer timer .text test
 add repeat .enable
 ```
- 
+
+# Portable config 
 ``` read open_file
 add file_src    .text test.sh
 add node_title  .text open_test_sh
