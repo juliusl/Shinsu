@@ -2,7 +2,7 @@
 use std::env::args;
 
 use imgui::Window;
-use lifec::{open, start, Runtime, editor::*, plugins::*};
+use lifec::{open, start, Extension, Runtime, editor::*, plugins::*};
 use shinsu::NodeEditor;
 
 fn main() {

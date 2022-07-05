@@ -13,10 +13,9 @@ use specs::DenseVecStorage;
 use lifec::plugins::Sequence;
 use lifec::plugins::Connection;
 use lifec::plugins::ThunkContext;
-
+use lifec::Extension;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use atlier::system::Extension;
 
 /// This component renders a node to the editor
 #[derive(Component, Clone, Default, Debug)]
