@@ -2,7 +2,7 @@
 use std::env::args;
 
 use imgui::Window;
-use lifec::{open, start, Extension, Runtime, editor::*, plugins::*};
+use lifec::{open, start, Extension, Runtime, editor::*, plugins::*, World, DispatcherBuilder};
 use shinsu::NodeEditor;
 
 fn main() {
@@ -29,7 +29,7 @@ fn main() {
 
     let demo = Demo(NodeEditor::default(), RuntimeEditor::new(runtime));
     if run {
-        start(demo, "cmdline")
+        start(demo, &["cmdline"])
     } else {
         open(
             "shinsu demo", 
@@ -49,7 +49,7 @@ impl AsRef<Runtime> for Demo {
 }
 
 impl Extension for Demo {
-    fn configure_app_world(world: &mut lifec::plugins::World) {
+    fn configure_app_world(world: &mut World) {
         NodeEditor::configure_app_world(world);
         RuntimeEditor::configure_app_world(world);
     }
@@ -59,27 +59,25 @@ impl Extension for Demo {
         RuntimeEditor::configure_app_systems(dispatcher);
     }
 
-    fn on_ui(&'_ mut self, app_world: &lifec::plugins::World, ui: &'_ imgui::Ui<'_>) {
+    fn on_ui(&'_ mut self, app_world: &World, ui: &'_ imgui::Ui<'_>) {
         Window::new("demo").build(ui, ||{
             if ui.button("create sequence") {
                 let runtime = &self.1.runtime();
     
                 if let Some(first) = runtime.create_engine::<Call>(
                     app_world, 
-                    "from"
+                    "from".to_string()
                 ) {
                     // To enable in the node editor, add the connection component
-                    app_world.write_component::<Connection>()
-                        .insert(first, Connection::default()).ok();
+                    eprintln!("created from {:?}", first);
                 }
 
                 if let Some(first) = runtime.create_engine::<Call>(
                     app_world, 
-                    "to"
+                    "to".to_string()
                 ) {
                     // To enable in the node editor, add the connection component
-                    app_world.write_component::<Connection>()
-                        .insert(first, Connection::default()).ok();
+                    eprintln!("created from {:?}", first);
                 }
             }
         });
@@ -88,7 +86,7 @@ impl Extension for Demo {
         self.1.on_ui(app_world, ui);
     }
 
-    fn on_run(&'_ mut self, app_world: &lifec::plugins::World) {
+    fn on_run(&'_ mut self, app_world: &World) {
         self.0.on_run(app_world);
         self.1.on_run(app_world);
     }

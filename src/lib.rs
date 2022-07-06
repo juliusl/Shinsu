@@ -121,7 +121,8 @@ impl NodeEditor {
                         .entities()
                         .create();
     
-                    // Set the next entity as the owner of the link
+                    // sets an owner for the connection
+                    // this makes it easier to clean up dropped connections
                     connection.set_owner(link_entity);
     
                     let context = LinkContext(
