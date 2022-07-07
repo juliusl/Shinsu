@@ -208,7 +208,7 @@ impl Default for NodeEditor {
 
                     if let NodeContext(.., Some(input_pin), Some(output_pin), Some(attribute_id)) = nc {
                         scope.attribute(*attribute_id, ||{
-                            ui.text(thunk_symbol);
+                            ui.text(format!("{} {}", tc.block.block_name, thunk_symbol));
                         });
                         scope.add_input(*input_pin, PinShape::Circle, ||{
                             let label = tc.as_ref()
