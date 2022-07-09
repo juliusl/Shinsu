@@ -24,6 +24,7 @@ pub struct NodeContext(
     pub Sequence,
     pub Option<NodeId>,
     pub Option<InputPinId>,
+    pub Option<InputPinId>,
     pub Option<OutputPinId>,
     pub Option<AttributeId>,
 );
@@ -31,6 +32,10 @@ pub struct NodeContext(
 impl NodeContext {
     pub fn node_id(&self) -> Option<NodeId> {
         self.1
+    }
+
+    pub fn fork_pin(&self) -> Option<InputPinId> {
+        self.3
     }
 }
 
@@ -60,6 +65,7 @@ pub struct NodeEditor {
     idgen: imnodes::IdentifierGenerator,
     _imnodes: imnodes::Context,
     _connected: HashSet::<NodeId>,
+    _fork_pin: HashSet::<InputPinId>,
 }
 
 impl NodeEditor {
@@ -75,9 +81,13 @@ impl NodeEditor {
             sequence.clone(),
             Some(self.idgen.next_node()),
             Some(self.idgen.next_input_pin()),
+            Some(self.idgen.next_input_pin()),
             Some(self.idgen.next_output_pin()),
             Some(self.idgen.next_attribute()),
         );
+
+        let fork_pin = context.fork_pin().expect("just added");
+        self._fork_pin.insert(fork_pin);
 
         self.node_index
             .insert(context.node_id().expect("just generated"), sequence.clone());
@@ -92,15 +102,25 @@ impl NodeEditor {
     }
 
     /// Adds a new link that represents
-    pub fn add_link(&mut self, app_world: &World, from: &Sequence, to: &Sequence) -> Option<Connection> {
+    pub fn add_link(&mut self, app_world: &World, from: &Sequence, to: &Sequence, fork: bool) -> Option<Connection> {
         let nodes = app_world.read_component::<NodeContext>();
+        let to = {
+            if fork { 
+                if let Some(fork) = to.fork() {
+                    fork 
+                } else {
+                    to.clone()
+                }
+            } else {
+                to.clone() 
+            }
+        };
 
         let mut connection = from.connect(&to);
-
         if let (Some(from), Some(to)) = (from.peek(), to.peek()) {
             if let (
-                Some(NodeContext(_, Some(start_node), Some(_), Some(start_pin), ..)),
-                Some(NodeContext(_, Some(end_node), Some(end_pin), Some(_), ..)),
+                Some(NodeContext(_, Some(start_node), Some(_), Some(_), Some(start_pin), ..)),
+                Some(NodeContext(_, Some(end_node), Some(end_pin), Some(fork_pin), Some(_), ..)),
             ) = (nodes.get(from), nodes.get(to))
             {
                 // TODO currently this is a limitation, to having only 1 node connected to the output
@@ -108,6 +128,13 @@ impl NodeEditor {
                     let start_node = *start_node;
                     let end_node = *end_node;
                     let start_pin = *start_pin;
+                    let end_pin = {
+                        if fork {
+                            fork_pin
+                        } else {
+                            end_pin
+                        }
+                    };
                     let end_pin = *end_pin;
     
                     let link = Link {
@@ -188,6 +215,7 @@ impl Default for NodeEditor {
             idgen,
             _imnodes,
             _connected: HashSet::default(),
+            _fork_pin: HashSet::default(),
             node_index: HashMap::default(),
             link_index: HashMap::default(),
             creating: vec![],
@@ -206,7 +234,7 @@ impl Default for NodeEditor {
                         node_width = 150.0;
                     }
 
-                    if let NodeContext(.., Some(input_pin), Some(output_pin), Some(attribute_id)) = nc {
+                    if let NodeContext(.., Some(input_pin), Some(fork_pin), Some(output_pin), Some(attribute_id)) = nc {
                         scope.attribute(*attribute_id, ||{
                             ui.text(format!("{} {}", tc.block.block_name, thunk_symbol));
                         });
@@ -222,6 +250,13 @@ impl Default for NodeEditor {
                             ui.same_line();                            
                             ui.set_next_item_width(node_width);   
                             ui.label_text("cursor", "");
+                        });
+
+                        scope.add_input(*fork_pin, PinShape::Quad, ||{
+                            let label = tc.as_ref()
+                                .find_text("node_fork_input_label")
+                                .unwrap_or("fork".to_string());
+                            ui.text(label);
                         })
                     }   
                 }
@@ -297,6 +332,7 @@ impl Extension for NodeEditor
             let Link {
                 start_node,
                 end_node,
+                end_pin,
                 ..
             } = link;
             let from = self
@@ -308,8 +344,11 @@ impl Extension for NodeEditor
                 .get(&end_node)
                 .and_then(|s| Some(s.clone()));
 
+
+            let fork = self._fork_pin.contains(&end_pin);
+
             if let (Some(from), Some(to)) = (from, to) {
-                self.add_link(app_world, &from, &to);
+                self.add_link(app_world, &from, &to, fork);
             }
         }
 
@@ -352,12 +391,12 @@ struct Linker;
 
 impl<'a> System<'a> for Linker {
     type SystemData = (
-        WriteStorage<'a, Connection>,
+        ReadStorage<'a, Connection>,
         WriteStorage<'a, Sequence>,
     );
 
-    fn run(&mut self, (mut connections, mut sequences): Self::SystemData) {
-        for (connection, sequence) in (&mut connections, &mut sequences).join() {
+    fn run(&mut self, (connections, mut sequences): Self::SystemData) {
+        for (connection, sequence) in (&connections, &mut sequences).join() {
             if let (_, Some(to)) = connection.connection() {
                 sequence.set_cursor(to);
             }
