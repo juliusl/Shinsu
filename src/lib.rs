@@ -1,5 +1,11 @@
 use imgui::Ui;
 use imnodes::*;
+use lifec::plugins::Connection;
+use lifec::plugins::Sequence;
+use lifec::plugins::ThunkContext;
+use lifec::Extension;
+use specs::Component;
+use specs::DenseVecStorage;
 use specs::Entities;
 use specs::Join;
 use specs::ReadStorage;
@@ -7,13 +13,7 @@ use specs::RunNow;
 use specs::System;
 use specs::World;
 use specs::WorldExt;
-use specs::Component;
 use specs::WriteStorage;
-use specs::DenseVecStorage;
-use lifec::plugins::Sequence;
-use lifec::plugins::Connection;
-use lifec::plugins::ThunkContext;
-use lifec::Extension;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -64,8 +64,8 @@ pub struct NodeEditor {
     editor_context: imnodes::EditorContext,
     idgen: imnodes::IdentifierGenerator,
     _imnodes: imnodes::Context,
-    _connected: HashSet::<NodeId>,
-    _fork_pin: HashSet::<InputPinId>,
+    _connected: HashSet<NodeId>,
+    _fork_pin: HashSet<InputPinId>,
 }
 
 impl NodeEditor {
@@ -102,17 +102,23 @@ impl NodeEditor {
     }
 
     /// Adds a new link that represents
-    pub fn add_link(&mut self, app_world: &World, from: &Sequence, to: &Sequence, fork: bool) -> Option<Connection> {
+    pub fn add_link(
+        &mut self,
+        app_world: &World,
+        from: &Sequence,
+        to: &Sequence,
+        fork: bool,
+    ) -> Option<Connection> {
         let nodes = app_world.read_component::<NodeContext>();
         let to = {
-            if fork { 
+            if fork {
                 if let Some(fork) = to.fork() {
-                    fork 
+                    fork
                 } else {
                     to.clone()
                 }
             } else {
-                to.clone() 
+                to.clone()
             }
         };
 
@@ -136,7 +142,7 @@ impl NodeEditor {
                         }
                     };
                     let end_pin = *end_pin;
-    
+
                     let link = Link {
                         start_node,
                         end_node,
@@ -144,20 +150,15 @@ impl NodeEditor {
                         end_pin,
                         craeated_from_snap: true,
                     };
-                    let link_entity = app_world
-                        .entities()
-                        .create();
-    
+                    let link_entity = app_world.entities().create();
+
                     // sets an owner for the connection
                     // this makes it easier to clean up dropped connections
                     connection.set_owner(link_entity);
-    
-                    let context = LinkContext(
-                        connection.clone(), 
-                        Some(link),
-                        Some(self.idgen.next_link())
-                    );
-    
+
+                    let context =
+                        LinkContext(connection.clone(), Some(link), Some(self.idgen.next_link()));
+
                     let mut links = app_world.write_component::<LinkContext>();
                     match links.insert(link_entity, context.clone()) {
                         Ok(_) => {
@@ -167,14 +168,13 @@ impl NodeEditor {
                         }
                         Err(_) => {}
                     }
-    
+
                     let mut connections = app_world.write_component::<Connection>();
                     match connections.insert(from, connection.clone()) {
                         Ok(_) => {
                             return Some(connection);
-                        },
-                        Err(_) => {
-                        },
+                        }
+                        Err(_) => {}
                     }
                 } else {
                     eprintln!("Already connected");
@@ -193,12 +193,30 @@ impl NodeEditor {
             if let Some(drop) = drop.owner() {
                 if let Some(dropped) = links.remove(drop) {
                     if let LinkContext(_, Some(link), ..) = dropped {
-                        let Link { start_node,.. } = link;
+                        let Link { start_node, .. } = link;
 
-                       if self._connected.remove(&start_node) {
-                            eprintln!("dropped link {:?}",drop );
-                       }
+                        if self._connected.remove(&start_node) {
+                            eprintln!("dropped link {:?}", drop);
+                        }
                     }
+                }
+            }
+
+            if let (Some(from), Some(_)) = drop.connection() {
+                match app_world.write_component::<Connection>().insert(from, Connection::default()) {
+                    Ok(_) => {
+                       match app_world.write_component::<Sequence>().get_mut(from) {
+                        Some(sequence) => {
+                            *sequence = sequence.disconnect()
+                        },
+                        None => {
+                            
+                        },
+                    }
+                    },
+                    Err(_) => {
+
+                    },
                 }
             }
         }
@@ -226,7 +244,9 @@ impl Default for NodeEditor {
                     scope.add_titlebar(|| {
                         ui.text(node_title);
                     });
-                    let thunk_symbol = tc.block.as_ref()
+                    let thunk_symbol = tc
+                        .block
+                        .as_ref()
                         .find_text("thunk_symbol")
                         .unwrap_or("entity".to_string());
                     let mut node_width = 75.0;
@@ -236,39 +256,50 @@ impl Default for NodeEditor {
 
                     let entity = tc.entity.and_then(|e| Some(e.id())).unwrap_or(0);
 
-                    if let NodeContext(.., Some(input_pin), Some(fork_pin), Some(output_pin), Some(attribute_id)) = nc {
-                        scope.attribute(*attribute_id, ||{
-                            ui.text(format!("{} {} {}",entity, tc.block.block_name, thunk_symbol));
+                    if let NodeContext(
+                        ..,
+                        Some(input_pin),
+                        Some(fork_pin),
+                        Some(output_pin),
+                        Some(attribute_id),
+                    ) = nc
+                    {
+                        scope.attribute(*attribute_id, || {
+                            ui.text(format!(
+                                "{} {} {}",
+                                entity, tc.block.block_name, thunk_symbol
+                            ));
                         });
-                        scope.add_input(*input_pin, PinShape::Circle, ||{
-                            let label = tc.as_ref()
+                        scope.add_input(*input_pin, PinShape::Circle, || {
+                            let label = tc
+                                .as_ref()
                                 .find_text("node_input_label")
                                 .unwrap_or("start".to_string());
                             ui.text(label);
                         });
 
                         ui.same_line();
-                        scope.add_output(*output_pin, PinShape::CircleFilled, ||{
-                            ui.same_line();                            
-                            ui.set_next_item_width(node_width);   
+                        scope.add_output(*output_pin, PinShape::CircleFilled, || {
+                            ui.same_line();
+                            ui.set_next_item_width(node_width);
                             ui.label_text("cursor", "");
                         });
 
-                        scope.add_input(*fork_pin, PinShape::Quad, ||{
-                            let label = tc.as_ref()
+                        scope.add_input(*fork_pin, PinShape::Quad, || {
+                            let label = tc
+                                .as_ref()
                                 .find_text("node_fork_input_label")
                                 .unwrap_or("fork".to_string());
                             ui.text(label);
                         })
-                    }   
+                    }
                 }
-            }
+            },
         }
     }
 }
 
-impl Extension for NodeEditor
-{
+impl Extension for NodeEditor {
     fn configure_app_world(world: &mut World) {
         world.register::<NodeContext>();
         world.register::<LinkContext>();
@@ -277,7 +308,7 @@ impl Extension for NodeEditor
 
     fn configure_app_systems(dispatcher: &mut specs::DispatcherBuilder) {
         // linking system to set sequence cursors based on connections
-        dispatcher.add(Linker{}, "shinsu/linker", &[]);
+        dispatcher.add(Linker {}, "shinsu/linker", &[]);
     }
 
     fn on_ui(&'_ mut self, app_world: &specs::World, ui: &'_ imgui::Ui<'_>) {
@@ -341,11 +372,7 @@ impl Extension for NodeEditor
                 .node_index
                 .get(&start_node)
                 .and_then(|s| Some(s.clone()));
-            let to = self
-                .node_index
-                .get(&end_node)
-                .and_then(|s| Some(s.clone()));
-
+            let to = self.node_index.get(&end_node).and_then(|s| Some(s.clone()));
 
             let fork = self._fork_pin.contains(&end_pin);
 
@@ -361,7 +388,7 @@ impl Extension for NodeEditor
         while let Some(create) = self.creating.pop() {
             self.add_node(app_world, &create);
         }
-        
+
         self.run_now(app_world);
     }
 }
@@ -375,11 +402,9 @@ impl<'a> System<'a> for NodeEditor {
     );
 
     fn run(&mut self, (entities, sequences, connections, nodes): Self::SystemData) {
-        for (entity, sequence, _connection, node) in (
-            &entities, 
-            &sequences, 
-            &connections,
-            nodes.maybe()).join() {
+        for (entity, sequence, _connection, node) in
+            (&entities, &sequences, &connections, nodes.maybe()).join()
+        {
             if let None = node {
                 let mut clone = sequence.clone();
                 clone.push(entity);
@@ -392,10 +417,7 @@ impl<'a> System<'a> for NodeEditor {
 struct Linker;
 
 impl<'a> System<'a> for Linker {
-    type SystemData = (
-        ReadStorage<'a, Connection>,
-        WriteStorage<'a, Sequence>,
-    );
+    type SystemData = (ReadStorage<'a, Connection>, WriteStorage<'a, Sequence>);
 
     fn run(&mut self, (connections, mut sequences): Self::SystemData) {
         for (connection, sequence) in (&connections, &mut sequences).join() {

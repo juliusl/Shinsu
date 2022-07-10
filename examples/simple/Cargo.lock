@@ -56,7 +56,7 @@ dependencies = [
 [[package]]
 name = "atlier"
 version = "0.1.0"
-source = "git+https://github.com/juliusl/atlier.git?branch=main#de096599ef183a6581dcd03b7ed28d72f2ee0d36"
+source = "git+https://github.com/juliusl/atlier.git?branch=main#b36cad766701a42f27504e6c5045ad5d2066a370"
 dependencies = [
  "base64",
  "futures",
@@ -72,7 +72,7 @@ dependencies = [
 [[package]]
 name = "atlier"
 version = "0.1.0"
-source = "git+https://github.com/juliusl/atlier.git#de096599ef183a6581dcd03b7ed28d72f2ee0d36"
+source = "git+https://github.com/juliusl/atlier.git#b36cad766701a42f27504e6c5045ad5d2066a370"
 dependencies = [
  "base64",
  "futures",
@@ -711,9 +711,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.12.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db0d4cf898abf0081f964436dc980e96670a0f36863e4b83aaacdb65c9d7ccc3"
+checksum = "607c8a29735385251a339424dd462993c0fed8fa09d378f259377df08c126022"
 
 [[package]]
 name = "hermit-abi"
@@ -815,7 +815,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10a35a97730320ffe8e2d410b5d3b69279b98d2c14bdb8b70ea89ecf7888d41e"
 dependencies = [
  "autocfg",
- "hashbrown 0.12.1",
+ "hashbrown 0.12.2",
 ]
 
 [[package]]
@@ -911,7 +911,7 @@ dependencies = [
 [[package]]
 name = "lifec"
 version = "0.1.0"
-source = "git+https://github.com/juliusl/lifec.git?branch=main#17e00d87ae3bce1218055b5726f696535cb38998"
+source = "git+https://github.com/juliusl/lifec.git?branch=main#f47188ec5a220d789620bfd96d28b0ca4162cf99"
 dependencies = [
  "atlier 0.1.0 (git+https://github.com/juliusl/atlier.git)",
  "base64",
@@ -1474,9 +1474,9 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.6.26"
+version = "0.6.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
+checksum = "a3f87b73ce11b1619a3c6332f45341e0047173771e8b8b73f87bfeefb7b56244"
 
 [[package]]
 name = "renderdoc-sys"
