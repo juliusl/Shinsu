@@ -241,8 +241,9 @@ impl Default for NodeEditor {
             dropping: vec![],
             node_ui: |mut scope, nc, tc, ui| {
                 if let Some(node_title) = tc.as_ref().find_text("node_title") {
+                    let entity = tc.entity.and_then(|e| Some(e.id())).unwrap_or(0);
                     scope.add_titlebar(|| {
-                        ui.text(node_title);
+                        ui.text(format!("{entity} {node_title}"));
                     });
                     let thunk_symbol = tc
                         .block
@@ -254,8 +255,6 @@ impl Default for NodeEditor {
                         node_width = 150.0;
                     }
 
-                    let entity = tc.entity.and_then(|e| Some(e.id())).unwrap_or(0);
-
                     if let NodeContext(
                         ..,
                         Some(input_pin),
@@ -266,8 +265,8 @@ impl Default for NodeEditor {
                     {
                         scope.attribute(*attribute_id, || {
                             ui.text(format!(
-                                "{} {} {}",
-                                entity, tc.block.block_name, thunk_symbol
+                                "{} {}",
+                                tc.block.block_name, thunk_symbol
                             ));
                         });
                         scope.add_input(*input_pin, PinShape::Circle, || {
@@ -285,13 +284,15 @@ impl Default for NodeEditor {
                             ui.label_text("cursor", "");
                         });
 
-                        scope.add_input(*fork_pin, PinShape::Quad, || {
-                            let label = tc
-                                .as_ref()
-                                .find_text("node_fork_input_label")
-                                .unwrap_or("fork".to_string());
-                            ui.text(label);
-                        })
+                        if let Some(true) = tc.as_ref().is_enabled("enable_fork") {
+                            scope.add_input(*fork_pin, PinShape::Quad, || {
+                                let label = tc
+                                    .as_ref()
+                                    .find_text("node_fork_input_label")
+                                    .unwrap_or("fork".to_string());
+                                ui.text(label);
+                            });
+                        }
                     }
                 }
             },
