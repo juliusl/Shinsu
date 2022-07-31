@@ -1,6 +1,8 @@
 use imgui::Ui;
 use imnodes::*;
+use lifec::plugins::CancelThunk;
 use lifec::plugins::Connection;
+use lifec::plugins::Event;
 use lifec::plugins::Sequence;
 use lifec::plugins::ThunkContext;
 use lifec::Extension;
@@ -51,7 +53,7 @@ impl LinkContext {
 }
 
 /// Function for displaying ui on the node
-pub type NodeUI = fn(NodeScope, &NodeContext, &ThunkContext, &Ui);
+pub type NodeUI = fn(NodeScope, &NodeContext, &ThunkContext, &Ui) -> bool;
 
 /// Extension w/ node editor
 pub struct NodeEditor {
@@ -203,20 +205,15 @@ impl NodeEditor {
             }
 
             if let (Some(from), Some(_)) = drop.connection() {
-                match app_world.write_component::<Connection>().insert(from, Connection::default()) {
-                    Ok(_) => {
-                       match app_world.write_component::<Sequence>().get_mut(from) {
-                        Some(sequence) => {
-                            *sequence = sequence.disconnect()
-                        },
-                        None => {
-                            
-                        },
-                    }
+                match app_world
+                    .write_component::<Connection>()
+                    .insert(from, Connection::default())
+                {
+                    Ok(_) => match app_world.write_component::<Sequence>().get_mut(from) {
+                        Some(sequence) => *sequence = sequence.disconnect(),
+                        None => {}
                     },
-                    Err(_) => {
-
-                    },
+                    Err(_) => {}
                 }
             }
         }
@@ -264,10 +261,7 @@ impl Default for NodeEditor {
                     ) = nc
                     {
                         scope.attribute(*attribute_id, || {
-                            ui.text(format!(
-                                "{} {}",
-                                tc.block.block_name, thunk_symbol
-                            ));
+                            ui.text(format!("{} {}", tc.block.block_name, thunk_symbol));
                         });
                         scope.add_input(*input_pin, PinShape::Circle, || {
                             let label = tc
@@ -294,7 +288,15 @@ impl Default for NodeEditor {
                             });
                         }
                     }
+
+                    return if node_title.contains("Running -> ") {
+                        ui.button("cancel")
+                    } else {
+                        ui.button("start")
+                    };
                 }
+
+                false
             },
         }
     }
@@ -315,7 +317,9 @@ impl Extension for NodeEditor {
     fn on_ui(&'_ mut self, app_world: &specs::World, ui: &'_ imgui::Ui<'_>) {
         let nodes = app_world.read_component::<NodeContext>();
         let links = app_world.read_component::<LinkContext>();
-        let thunks = app_world.write_component::<ThunkContext>();
+        let thunks = app_world.read_component::<ThunkContext>();
+        let mut events = app_world.write_component::<Event>();
+        let mut cancel_events = app_world.write_component::<CancelThunk>();
 
         let detatch = self
             .editor_context
@@ -329,7 +333,17 @@ impl Extension for NodeEditor {
                     editor_scope.add_node(*node_id, |node_scope| {
                         if let Some(from) = sequence.last() {
                             if let Some(tc) = thunks.get(from) {
-                                (self.node_ui)(node_scope, node, tc, ui);
+                                if (self.node_ui)(node_scope, node, tc, ui) {
+                                    if let Some(event) = events.get_mut(from) {
+                                        if event.is_running() {
+                                            if let Some(cancel_thunk) = cancel_events.remove(from) {
+                                                cancel_thunk.0.send(()).ok();
+                                            }
+                                        } else {
+                                            event.fire(tc.clone());
+                                        }
+                                    }
+                                }
                             }
                         }
                     });
