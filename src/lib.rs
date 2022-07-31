@@ -289,7 +289,7 @@ impl Default for NodeEditor {
                         }
                     }
 
-                    return if node_title.contains("Running") {
+                    return if thunk_symbol.contains("Running") {
                         ui.button("cancel")
                     } else {
                         ui.button("start")
