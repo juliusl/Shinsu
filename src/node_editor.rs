@@ -77,11 +77,15 @@ impl NodeEditor
 
     /// Adds a new link between two node contexts,
     /// 
+    /// TODO: Will add support for multi i/o by passing in start/end pins
+    /// 
     pub fn add_link(
         &mut self,
         world: &World,
         from: &Sequence,
+        _start_pin: OutputPinId,
         to: &Sequence,
+        _end_pin: InputPinId,
     ) -> Option<Connection> {
         let nodes = world.read_component::<NodeContext>();
 

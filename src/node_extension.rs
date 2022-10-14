@@ -158,6 +158,8 @@ where
             let Link {
                 start_node,
                 end_node,
+                start_pin,
+                end_pin,
                 ..
             } = link;
             let from = node_editor
@@ -170,7 +172,7 @@ where
                 .and_then(|s| Some(s.clone()));
 
             if let (Some(from), Some(to)) = (from, to) {
-                node_editor.add_link(app_world, &from, &to);
+                node_editor.add_link(app_world, &from, start_pin, &to, end_pin);
             }
         }
 

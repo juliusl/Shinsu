@@ -10,7 +10,7 @@ use crate::{NodeContext, NodeDevice};
 pub struct SingleIO;
 
 impl NodeDevice for SingleIO {
-    fn render(&self, mut scope: imnodes::NodeScope, nc: &NodeContext, tc: &ThunkContext, ui: &Ui) {
+    fn render(&self, mut scope: imnodes::NodeScope, nc: &NodeContext, tc: &ThunkContext, ui: &Ui) -> bool {
         if let Some(node_title) = tc.search().find_symbol("node_title") {
             scope.add_titlebar(|| {
                 ui.text(node_title);
@@ -41,9 +41,11 @@ impl NodeDevice for SingleIO {
                     ui.same_line();
                     ui.set_next_item_width(node_width);
                     ui.label_text("cursor", "");
-                })
+                });
             }
         }
+            
+        false
     }
 
     fn create (
