@@ -4,13 +4,17 @@ use lifec::{AttributeIndex, ThunkContext};
 
 use crate::{NodeContext, NodeDevice};
 
+use super::NodeEvent;
+
 /// Node device implementation that is a single input/output,
-///
+/// 
+/// Used for setting a cursor on sequences,
+/// 
 #[derive(Default)]
 pub struct SingleIO;
 
 impl NodeDevice for SingleIO {
-    fn render(&self, mut scope: imnodes::NodeScope, nc: &NodeContext, tc: &ThunkContext, ui: &Ui) -> bool {
+    fn render(&self, mut scope: imnodes::NodeScope, nc: &NodeContext, tc: &ThunkContext, ui: &Ui) -> Option<NodeEvent> {
         if let Some(node_title) = tc.search().find_symbol("node_title") {
             scope.add_titlebar(|| {
                 ui.text(node_title);
@@ -45,7 +49,7 @@ impl NodeDevice for SingleIO {
             }
         }
             
-        false
+        None
     }
 
     fn create (
@@ -60,5 +64,9 @@ impl NodeDevice for SingleIO {
             Some(idgen.next_output_pin()),
             Some(idgen.next_attribute()),
         )
+    }
+
+    fn on_event(&self, _: &lifec::World, _: super::NodeEvent) {
+        todo!()
     }
 }

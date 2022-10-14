@@ -5,13 +5,13 @@ use lifec::{
 };
 use specs::RunNow;
 
-use crate::{LinkContext, NodeContext, NodeDevice, NodeEditor};
+use crate::{LinkContext, NodeContext, NodeDevice, NodeEditor, SingleIO};
 
 /// Extension/Interpreter that implements a node editor,
 ///
 /// Entities w/ the sequence component are candidates for being represented as a node,
 ///
-pub struct NodeExtension<T>
+pub struct NodeExtension<T = SingleIO>
 where
     T: NodeDevice,
 {
@@ -92,12 +92,12 @@ where
         dispatcher.add(Linker {}, "", &[]);
     }
 
-    fn on_ui(&'_ mut self, app_world: &specs::World, ui: &'_ imgui::Ui<'_>) {
-        let nodes = app_world.read_component::<NodeContext>();
-        let links = app_world.read_component::<LinkContext>();
-        let thunks = app_world.read_component::<ThunkContext>();
-        let graphs = app_world.read_component::<AttributeGraph>();
-        let blocks = app_world.read_component::<Block>();
+    fn on_ui(&'_ mut self, world: &specs::World, ui: &'_ imgui::Ui<'_>) {
+        let nodes = world.read_component::<NodeContext>();
+        let links = world.read_component::<LinkContext>();
+        let thunks = world.read_component::<ThunkContext>();
+        let graphs = world.read_component::<AttributeGraph>();
+        let blocks = world.read_component::<Block>();
 
         let detatch = self
             .editor_context
@@ -113,13 +113,15 @@ where
                             if let (Some(tc), Some(graph), Some(block)) =
                                 (thunks.get(from), graphs.get(from), blocks.get(from))
                             {
-                                // TODO -- This could probably be improved
-                                self.node_device.render(
+                                if let Some(event) = self.node_device.render(
                                     node_scope,
                                     node,
+                                    // TODO -- This could probably be improved
                                     &tc.with_state(graph.clone()).with_block(block),
                                     ui,
-                                );
+                                ).take() {
+                                    self.node_device.on_event(world, event);
+                                }
                             }
                         }
                     });
@@ -151,15 +153,13 @@ where
         detatch.pop();
     }
 
-    fn on_run(&'_ mut self, app_world: &specs::World) {
-        let mut node_editor = app_world.write_resource::<NodeEditor>();
+    fn on_run(&'_ mut self, world: &specs::World) {
+        let mut node_editor = world.write_resource::<NodeEditor>();
 
         while let Some(link) = self.connecting.pop() {
             let Link {
                 start_node,
                 end_node,
-                start_pin,
-                end_pin,
                 ..
             } = link;
             let from = node_editor
@@ -172,19 +172,19 @@ where
                 .and_then(|s| Some(s.clone()));
 
             if let (Some(from), Some(to)) = (from, to) {
-                node_editor.add_link(app_world, &from, start_pin, &to, end_pin);
+                node_editor.add_link(world, &from, &to, link.clone());
             }
         }
 
         while let Some(drop) = self.dropping.pop() {
-            node_editor.remove_link_by_id(app_world, drop);
+            node_editor.remove_link_by_id(world, drop);
         }
 
         while let Some(create) = self.creating.pop() {
-            node_editor.add_node::<T>(app_world, &create);
+            node_editor.add_node::<T>(world, &create);
         }
 
-        self.run_now(app_world);
+        self.run_now(world);
     }
 }
 

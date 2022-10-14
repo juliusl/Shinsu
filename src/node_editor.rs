@@ -14,27 +14,29 @@ use tracing::event;
 use tracing::Level;
 
 /// Index for fetching the sequence a node id represents,
-/// 
+///
 pub type NodeIndex = HashMap<NodeId, Sequence>;
 
 /// Index for fetching the connection a link id represents
-/// 
+///
 pub type LinkIndex = HashMap<LinkId, Connection>;
+
+/// Set for connected nodes
+/// 
+pub type ConnectedNodes = HashSet<Link>;
 
 /// Struct for node editor state,
 ///
-pub struct NodeEditor
-{
+pub struct NodeEditor {
     node_index: NodeIndex,
     link_index: LinkIndex,
-    connected: HashSet<NodeId>,
+    connected: ConnectedNodes,
     idgen: imnodes::IdentifierGenerator,
 }
 
-impl NodeEditor
-{
+impl NodeEditor {
     /// Creates a new node editor,
-    /// 
+    ///
     pub fn new(idgen: IdentifierGenerator) -> Self {
         Self {
             idgen,
@@ -43,127 +45,105 @@ impl NodeEditor
             connected: HashSet::default(),
         }
     }
-    
+
     /// Returns an immutable reference to the node_index,
-    /// 
+    ///
     pub fn node_index(&self) -> &NodeIndex {
         &self.node_index
     }
 
     /// Returns a mutable reference to the node_index,
-    /// 
+    ///
     pub fn node_index_mut(&mut self) -> &mut NodeIndex {
         &mut self.node_index
     }
 
     /// Adds a new node to represent the sequence,
-    /// 
-    pub fn add_node<T>(&mut self, world: &World, sequence: &Sequence) 
+    ///
+    /// Returns the node context created,
+    ///
+    pub fn add_node<T>(&mut self, world: &World, sequence: &Sequence) -> NodeContext
     where
-        T: NodeDevice
+        T: NodeDevice,
     {
         let context = T::create(world, sequence, &mut self.idgen);
 
-        self.node_index.insert(context.node_id().expect("just generated"), sequence.clone());
+        self.node_index
+            .insert(context.node_id().expect("just generated"), sequence.clone());
 
         let mut nodes = world.write_component::<NodeContext>();
         if let Some(start) = sequence.peek() {
-            match nodes.insert(start, context) {
-                Ok(_) => {}
-                Err(_) => {}
-            }
+            nodes
+                .insert(start, context.clone())
+                .expect("should be able to insert context");
         }
+
+        context
     }
 
     /// Adds a new link between two node contexts,
-    /// 
+    ///
     /// TODO: Will add support for multi i/o by passing in start/end pins
-    /// 
+    ///
     pub fn add_link(
         &mut self,
         world: &World,
         from: &Sequence,
-        _start_pin: OutputPinId,
         to: &Sequence,
-        _end_pin: InputPinId,
+        link: Link,
     ) -> Option<Connection> {
-        let nodes = world.read_component::<NodeContext>();
-
         let mut connection = from.connect(&to);
 
-        if let (Some(from), Some(to)) = (from.peek(), to.peek()) {
-            if let (
-                Some(NodeContext(_, Some(start_node), Some(_), Some(start_pin), ..)),
-                Some(NodeContext(_, Some(end_node), Some(end_pin), Some(_), ..)),
-            ) = (nodes.get(from), nodes.get(to))
-            {
-                // TODO currently this is a limitation, to having only 1 node connected to the output
-                if self.connected.insert(*start_node) {
-                    let start_node = *start_node;
-                    let end_node = *end_node;
-                    let start_pin = *start_pin;
-                    let end_pin = *end_pin;
+        if let (Some(from), Some(_)) = (from.peek(), to.peek()) {
+            if self.connected.insert(link) {
+                let link_entity = world.entities().create();
 
-                    let link = Link {
-                        start_node,
-                        end_node,
-                        start_pin,
-                        end_pin,
-                        craeated_from_snap: true,
-                    };
-                    let link_entity = world.entities().create();
+                // sets an owner for the connection
+                // this makes it easier to clean up dropped connections
+                connection.set_owner(link_entity);
 
-                    // sets an owner for the connection
-                    // this makes it easier to clean up dropped connections
-                    connection.set_owner(link_entity);
+                let context =
+                    LinkContext(connection.clone(), Some(link), Some(self.idgen.next_link()));
 
-                    let context =
-                        LinkContext(connection.clone(), Some(link), Some(self.idgen.next_link()));
-
-                    let mut links = world.write_component::<LinkContext>();
-                    match links.insert(link_entity, context.clone()) {
-                        Ok(_) => {
-                            if let Some(link_id) = context.link_id() {
-                                self.link_index.insert(link_id, connection.clone());
-                            }
+                let mut links = world.write_component::<LinkContext>();
+                match links.insert(link_entity, context.clone()) {
+                    Ok(_) => {
+                        if let Some(link_id) = context.link_id() {
+                            self.link_index.insert(link_id, connection.clone());
                         }
-                        Err(_) => {}
                     }
-
-                    let mut connections = world.write_component::<Connection>();
-                    match connections.insert(from, connection.clone()) {
-                        Ok(_) => {
-                            return Some(connection);
-                        }
-                        Err(_) => {}
-                    }
-                } else {
-                    event!(Level::TRACE, "Already connected");
+                    Err(_) => {}
                 }
+
+                let mut connections = world.write_component::<Connection>();
+                match connections.insert(from, connection.clone()) {
+                    Ok(_) => {
+                        return Some(connection);
+                    }
+                    Err(_) => {}
+                }
+            } else {
+                event!(Level::TRACE, "Already connected");
             }
         }
-
+        
         None
     }
 
     /// Removes a link by id from the world,
-    /// 
+    ///
     pub fn remove_link_by_id(&mut self, world: &World, link_id: LinkId) {
         let mut links = world.write_component::<LinkContext>();
 
-        if let Some(drop) = self.link_index.remove(&link_id) {
-            if let Some(drop) = drop.owner() {
-                if let Some(dropped) = links.remove(drop) {
-                    if let LinkContext(_, Some(link), ..) = dropped {
-                        let Link { start_node, .. } = link;
-
-                        if self.connected.remove(&start_node) {
-                            event!(Level::TRACE, "dropped link {:?}", drop);
-                        }
-                    }
-                }
+        if let Some(LinkContext(_, Some(link), ..)) = self
+            .link_index
+            .remove(&link_id)
+            .and_then(|d| d.owner())
+            .and_then(|d| links.remove(d))
+        {
+            if self.connected.remove(&link) {
+                event!(Level::TRACE, "dropped link");
             }
         }
     }
 }
-
