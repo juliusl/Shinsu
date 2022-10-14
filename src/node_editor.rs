@@ -22,7 +22,7 @@ pub type NodeIndex = HashMap<NodeId, Sequence>;
 pub type LinkIndex = HashMap<LinkId, Connection>;
 
 /// Set for connected nodes
-/// 
+///
 pub type ConnectedNodes = HashSet<Link>;
 
 /// Struct for node editor state,
@@ -126,7 +126,7 @@ impl NodeEditor {
                 event!(Level::TRACE, "Already connected");
             }
         }
-        
+
         None
     }
 
@@ -134,8 +134,9 @@ impl NodeEditor {
     ///
     pub fn remove_link_by_id(&mut self, world: &World, link_id: LinkId) {
         let mut links = world.write_component::<LinkContext>();
+        let mut sequences = world.write_component::<Sequence>();
 
-        if let Some(LinkContext(_, Some(link), ..)) = self
+        if let Some(LinkContext(connection, Some(link), ..)) = self
             .link_index
             .remove(&link_id)
             .and_then(|d| d.owner())
@@ -143,6 +144,12 @@ impl NodeEditor {
         {
             if self.connected.remove(&link) {
                 event!(Level::TRACE, "dropped link");
+                if let (Some(from), Some(to)) = connection.connection() {
+                    if let Some(seq) = sequences.get_mut(from) {
+                        event!(Level::TRACE, "disconnecting {} {}", from.id(), to.id());
+                        *seq = seq.disconnect_by(to);
+                    }
+                }
             }
         }
     }
