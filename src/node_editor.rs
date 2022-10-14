@@ -146,7 +146,7 @@ impl NodeEditor {
                 event!(Level::TRACE, "dropped link");
                 if let (Some(from), Some(to)) = connection.connection() {
                     if let Some(seq) = sequences.get_mut(from) {
-                        event!(Level::TRACE, "disconnecting {} {}", from.id(), to.id());
+                        event!(Level::TRACE, "disconnecting {} -/> {}", from.id(), to.id());
                         *seq = seq.disconnect_by(to);
                     }
                 }
