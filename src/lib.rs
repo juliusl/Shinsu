@@ -11,3 +11,6 @@ pub use link_context::LinkContext;
 
 mod node_editor;
 pub use node_editor::NodeEditor;
+
+mod node_extension;
+pub use node_extension::NodeExtension;

@@ -1,8 +1,8 @@
 use imnodes::{NodeId, InputPinId, OutputPinId, AttributeId};
 use lifec::{Sequence, Component, DenseVecStorage};
 
-/// Struct for all node id's and sequence this node represents,
-///
+/// Struct for the node state of a sequence,
+/// 
 #[derive(Component, Clone, Default, Debug)]
 #[storage(DenseVecStorage)]
 pub struct NodeContext(

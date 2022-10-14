@@ -1,6 +1,6 @@
 use imgui::Ui;
-use imnodes::NodeScope;
-use lifec::ThunkContext;
+use imnodes::{NodeScope, IdentifierGenerator};
+use lifec::{ThunkContext, Sequence, World};
 
 use crate::NodeContext;
 
@@ -19,6 +19,12 @@ pub trait NodeDevice {
         thunk_context: &ThunkContext, 
         ui: &Ui 
     );
+
+    fn create (
+        world: &World, 
+        sequence: &Sequence,
+        idgen: &mut IdentifierGenerator,
+    ) -> NodeContext;
 }
 
 impl<F> NodeDevice for F
@@ -33,5 +39,13 @@ where
         ui: &Ui,
     ) {
         (self)(scope, node_context, thunk_context, ui)
+    }
+
+    fn create (
+        world: &World, 
+        sequence: &Sequence,
+        idgen: &mut IdentifierGenerator,
+    ) -> NodeContext {
+        SingleIO::create(world, sequence, idgen)
     }
 }

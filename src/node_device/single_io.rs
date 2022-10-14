@@ -1,27 +1,23 @@
+use imgui::Ui;
 use imnodes::PinShape;
-use lifec::AttributeIndex;
+use lifec::{AttributeIndex, ThunkContext};
 
-use crate::{NodeDevice, NodeContext};
+use crate::{NodeContext, NodeDevice};
 
-/// Node device implementation that is a single input/output
-/// 
+/// Node device implementation that is a single input/output,
+///
+#[derive(Default)]
 pub struct SingleIO;
 
 impl NodeDevice for SingleIO {
-    fn render(
-        &self,
-        mut scope: imnodes::NodeScope,
-        nc: &crate::NodeContext,
-        tc: &lifec::ThunkContext,
-        ui: &imgui::Ui,
-    ) {
-        if let Some(node_title) = tc.state().find_text("node_title") {
+    fn render(&self, mut scope: imnodes::NodeScope, nc: &NodeContext, tc: &ThunkContext, ui: &Ui) {
+        if let Some(node_title) = tc.search().find_symbol("node_title") {
             scope.add_titlebar(|| {
                 ui.text(node_title);
             });
             let thunk_symbol = tc
                 .state()
-                .find_text("plugin_symbol")
+                .find_symbol("plugin_symbol")
                 .unwrap_or("entity".to_string());
             let mut node_width = 75.0;
             if thunk_symbol.len() > 24 {
@@ -34,8 +30,8 @@ impl NodeDevice for SingleIO {
                 });
                 scope.add_input(*input_pin, PinShape::Circle, || {
                     let label = tc
-                        .state()
-                        .find_text("node_input_label")
+                        .search()
+                        .find_symbol("node_input_label")
                         .unwrap_or("start".to_string());
                     ui.text(label);
                 });
@@ -48,5 +44,19 @@ impl NodeDevice for SingleIO {
                 })
             }
         }
+    }
+
+    fn create (
+        _: &lifec::World,
+        sequence: &lifec::Sequence,
+        idgen: &mut imnodes::IdentifierGenerator,
+    ) -> NodeContext {
+        NodeContext(
+            sequence.clone(),
+            Some(idgen.next_node()),
+            Some(idgen.next_input_pin()),
+            Some(idgen.next_output_pin()),
+            Some(idgen.next_attribute()),
+        )
     }
 }

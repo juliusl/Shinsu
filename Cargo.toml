@@ -12,3 +12,4 @@ imnodes = { git = "https://github.com/benmkw/imnodes-rs.git" }
 tokio = { version = "1.19.2", features = ["default", "rt-multi-thread", "sync", "fs", "process", "io-util", "io-std", "macros"] }
 specs = { version = "0.18.0", features = ["default", "derive"] }
 imgui = "0.8.2" 
+tracing = "0.1.37"
