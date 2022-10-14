@@ -107,7 +107,7 @@ where
             editor_scope.add_mini_map(MiniMapLocation::BottomRight);
 
             for node in nodes.join() {
-                if let NodeContext(sequence, Some(node_id), ..) = node {
+                if let NodeContext{ node_id: Some(node_id), sequence: (sequence, ..) } = node {
                     editor_scope.add_node(*node_id, |node_scope| {
                         if let Some(from) = sequence.last() {
                             if let (Some(tc), Some(graph), Some(block)) =

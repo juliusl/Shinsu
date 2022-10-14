@@ -7,14 +7,20 @@ use crate::{NodeContext, NodeDevice};
 use super::NodeEvent;
 
 /// Node device implementation that is a single input/output,
-/// 
+///
 /// Used for setting a cursor on sequences,
-/// 
+///
 #[derive(Default)]
 pub struct SingleIO;
 
 impl NodeDevice for SingleIO {
-    fn render(&self, mut scope: imnodes::NodeScope, nc: &NodeContext, tc: &ThunkContext, ui: &Ui) -> Option<NodeEvent> {
+    fn render(
+        &self,
+        mut scope: imnodes::NodeScope,
+        nc: &NodeContext,
+        tc: &ThunkContext,
+        ui: &Ui,
+    ) -> Option<NodeEvent> {
         if let Some(node_title) = tc.search().find_symbol("node_title") {
             scope.add_titlebar(|| {
                 ui.text(node_title);
@@ -28,7 +34,12 @@ impl NodeDevice for SingleIO {
                 node_width = 150.0;
             }
 
-            if let NodeContext(.., Some(input_pin), Some(output_pin), Some(attribute_id)) = nc {
+            // Render sequence config 
+            if let NodeContext {
+                sequence: (_, Some(input_pin), Some(output_pin), Some(attribute_id)),
+                ..
+            } = nc
+            {
                 scope.attribute(*attribute_id, || {
                     ui.text(format!("{} {}", tc.block().name(), thunk_symbol));
                 });
@@ -48,22 +59,24 @@ impl NodeDevice for SingleIO {
                 });
             }
         }
-            
+
         None
     }
 
-    fn create (
+    fn create(
         _: &lifec::World,
         sequence: &lifec::Sequence,
         idgen: &mut imnodes::IdentifierGenerator,
     ) -> NodeContext {
-        NodeContext(
-            sequence.clone(),
-            Some(idgen.next_node()),
-            Some(idgen.next_input_pin()),
-            Some(idgen.next_output_pin()),
-            Some(idgen.next_attribute()),
-        )
+        NodeContext {
+            node_id: Some(idgen.next_node()),
+            sequence: (
+                sequence.clone(),
+                Some(idgen.next_input_pin()),
+                Some(idgen.next_output_pin()),
+                Some(idgen.next_attribute()),
+            ),
+        }
     }
 
     fn on_event(&self, _: &lifec::World, _: super::NodeEvent) {
