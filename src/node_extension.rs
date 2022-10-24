@@ -1,5 +1,5 @@
 use imnodes::{editor, AttributeFlag, Link, LinkId, MiniMapLocation};
-use lifec::{
+use lifec::prelude::{
     AttributeGraph, Block, Connection, Entities, Extension, Interpreter, Join, ReadStorage,
     Sequence, System, ThunkContext, World, WorldExt, WriteStorage,
 };
@@ -34,7 +34,7 @@ where
         world.insert(node_editor);
     }
 
-    fn interpret(&self, _world: &World, _block: &lifec::Block) {
+    fn interpret(&self, _world: &World, _block: &Block) {
         // TODO
     }
 }

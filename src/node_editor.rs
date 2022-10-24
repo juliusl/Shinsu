@@ -1,6 +1,5 @@
 use imnodes::*;
-use lifec::Connection;
-use lifec::Sequence;
+use lifec::prelude::{Connection, Sequence};
 use specs::World;
 use specs::WorldExt;
 use std::collections::HashMap;
@@ -90,9 +89,10 @@ impl NodeEditor {
         world: &World,
         from: &Sequence,
         to: &Sequence,
+        connection: Connection, 
         link: Link,
     ) -> Option<Connection> {
-        let mut connection = from.connect(&to);
+        // let mut connection = from.connect(&to);
 
         if let (Some(from), Some(_)) = (from.peek(), to.peek()) {
             if self.connected.insert(link) {
@@ -100,7 +100,7 @@ impl NodeEditor {
 
                 // sets an owner for the connection
                 // this makes it easier to clean up dropped connections
-                connection.set_owner(link_entity);
+                // connection.set_owner(link_entity);
 
                 let context =
                     LinkContext(connection.clone(), Some(link), Some(self.idgen.next_link()));

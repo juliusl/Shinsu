@@ -1,6 +1,7 @@
 use imgui::Ui;
 use imnodes::PinShape;
-use lifec::{AttributeIndex, ThunkContext};
+use lifec::prelude::{AttributeIndex, ThunkContext, Sequence};
+use specs::World;
 
 use crate::{NodeContext, NodeDevice};
 
@@ -64,8 +65,8 @@ impl NodeDevice for SingleIO {
     }
 
     fn create(
-        _: &lifec::World,
-        sequence: &lifec::Sequence,
+        _: &World,
+        sequence: &Sequence,
         idgen: &mut imnodes::IdentifierGenerator,
     ) -> NodeContext {
         NodeContext {
@@ -79,7 +80,7 @@ impl NodeDevice for SingleIO {
         }
     }
 
-    fn on_event(&self, _: &lifec::World, _: super::NodeEvent) {
+    fn on_event(&self, _: &World, _: super::NodeEvent) {
         todo!()
     }
 }

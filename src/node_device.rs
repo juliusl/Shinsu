@@ -1,6 +1,6 @@
 use imgui::Ui;
 use imnodes::{IdentifierGenerator, NodeScope};
-use lifec::{Entity, Sequence, ThunkContext, World};
+use lifec::prelude::{Entity, Sequence, ThunkContext, World};
 
 use crate::NodeContext;
 

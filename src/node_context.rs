@@ -1,5 +1,5 @@
 use imnodes::{AttributeId, InputPinId, Link, NodeId, OutputPinId};
-use lifec::{Component, DenseVecStorage, Sequence};
+use lifec::prelude::{Component, DenseVecStorage, Sequence};
 
 /// Struct for the node state of a sequence,
 ///
