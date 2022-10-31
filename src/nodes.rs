@@ -32,7 +32,7 @@ impl<'a> Nodes<'a> {
         let mut links = vec![];
         for (col, node) in self.events.nodes().iter().enumerate() {
             match node.status {
-                lifec::prelude::NodeStatus::Event(event_status) if !node.is_adhoc() => {
+                lifec::prelude::NodeStatus::Event(event_status) if !node.is_adhoc() && !node.is_spawned() => {
                     let entity = event_status.entity();
 
                     // Initialize node context
