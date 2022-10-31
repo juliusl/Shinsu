@@ -19,6 +19,12 @@ pub struct Nodes<'a> {
 }
 
 impl<'a> Nodes<'a> {
+    /// Returns a mutable reference to events system data,
+    /// 
+    pub fn events(&self) -> &Events<'a> {
+        &self.events
+    }
+
     /// Scans nodes and creates node contexts for them,
     ///
     pub fn scan_nodes(&mut self) -> (Vec<(NodeContext, Node)>, Vec<LinkContext>) {
@@ -57,7 +63,7 @@ impl<'a> Nodes<'a> {
                     if let (Some(from), Some(to)) = (from, to) {
                         let link = from.link(to, false);
 
-                        let link_id = self.node_editor.add_link(link);
+                        let link_id = self.node_editor.get_link(link);
 
                         links.push(LinkContext { link, link_id });
 

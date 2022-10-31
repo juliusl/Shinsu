@@ -1,11 +1,8 @@
-use std::collections::BTreeSet;
-
-use imgui::Ui;
+use imgui::{StyleVar, Ui};
 use imnodes::PinShape;
-use lifec::prelude::{AttributeIndex, Node, Sequence, ThunkContext};
-use specs::World;
+use lifec::prelude::{EventStatus, Node, NodeCommand, NodeStatus};
 
-use crate::{NodeContext, NodeDevice};
+use crate::{NodeContext, NodeDevice, Nodes};
 
 use super::NodeEvent;
 
@@ -37,6 +34,7 @@ impl NodeDevice for SingleIO {
 
             // Render sequence config
             let NodeContext {
+                entity,
                 input_pin_id,
                 output_pin_id,
                 attribute_id,
@@ -51,11 +49,6 @@ impl NodeDevice for SingleIO {
                 });
 
                 scope.add_input(*input_pin_id, PinShape::Circle, || {
-                    // let label = tc
-                    //     .search()
-                    //     .find_symbol("node_input_label")
-                    //     .unwrap_or("start".to_string());
-
                     if let Some(transition) = node.transition.as_ref() {
                         ui.text(format!("{:?}", transition));
                     } else {
@@ -69,13 +62,86 @@ impl NodeDevice for SingleIO {
                     ui.set_next_item_width(node_width);
                     ui.label_text("Cursor", "");
                 });
+
+                let frame_padding = ui.push_style_var(StyleVar::FramePadding([8.0, 5.0]));
+                match node.status {
+                    NodeStatus::Event(event_status) => match event_status {
+                        EventStatus::Inactive(_) => {
+                            ui.spacing();
+                            if ui.button("Start") {
+                                return Some(NodeEvent::button_press("Start", *entity));
+                            }
+
+                            ui.same_line();
+                            if ui.button("Pause") {
+                                return Some(NodeEvent::button_press("Pause", *entity));
+                            }
+                        }
+                        EventStatus::InProgress(_) => {
+                            if ui.button("Cancel") {
+                                return Some(NodeEvent::button_press("Cancel", *entity));
+                            }
+
+                            ui.same_line();
+                            if ui.button("Pause") {
+                                return Some(NodeEvent::button_press("Pause", *entity));
+                            }
+                        }
+                        EventStatus::Completed(_) => {
+                            if ui.button("Reset") {
+                                return Some(NodeEvent::button_press("Reset", *entity));
+                            }
+                        }
+                        EventStatus::Paused(_) => {
+                            if ui.button("Resume") {
+                                return Some(NodeEvent::button_press("Resume", *entity));
+                            }
+
+                            ui.same_line();
+                            if ui.button("Cancel") {
+                                return Some(NodeEvent::button_press("Cancel", *entity));
+                            }
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
+                frame_padding.end();
             }
         }
 
         None
     }
 
-    fn on_event(&mut self, world: &World, node_event: NodeEvent) {
-        todo!()
+    fn on_event(&mut self, nodes: &mut Nodes, node_event: NodeEvent) {
+        let broker = nodes.events().plugins().features().broker();
+
+        let node_command = match node_event {
+            NodeEvent::ButtonPress {
+                name: "Start",
+                entity,
+            } => NodeCommand::Activate(entity),
+            NodeEvent::ButtonPress {
+                name: "Pause",
+                entity,
+            } => NodeCommand::Pause(entity),
+            NodeEvent::ButtonPress {
+                name: "Resume",
+                entity,
+            } => NodeCommand::Resume(entity),
+            NodeEvent::ButtonPress {
+                name: "Cancel",
+                entity,
+            } => NodeCommand::Cancel(entity),
+            NodeEvent::ButtonPress {
+                name: "Reset",
+                entity,
+            } => NodeCommand::Reset(entity),
+            _ => {
+                panic!("Unrecognized command")
+            }
+        };
+
+        broker.try_send_node_command(node_command, None).ok();
     }
 }

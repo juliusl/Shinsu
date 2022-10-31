@@ -1,5 +1,5 @@
 use imnodes::{Link, LinkId};
-use lifec::prelude::{Connection, Component, DenseVecStorage};
+use lifec::prelude::{Component, DenseVecStorage};
 
 /// Struct for a connection and all link related state,
 ///

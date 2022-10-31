@@ -1,17 +1,11 @@
-use std::collections::HashMap;
-
 use atlier::system::App;
-use imgui::Window;
-use imnodes::{editor, AttributeFlag, Link, LinkId, MiniMapLocation};
+use imgui::{StyleVar, Window};
+use imnodes::{editor, AttributeFlag, Link, MiniMapLocation};
 use lifec::{
-    engine::NodeCommandHandler,
     prelude::{
-        Block, Connection, Entities, Extension, Interpreter, Join, ReadStorage, Sequence, System,
-        ThunkContext, World, WorldExt, WriteStorage,
+        Block, Extension, Interpreter, World, WorldExt,
     },
 };
-use specs::{RunNow, Write};
-
 use crate::{LinkContext, NodeContext, NodeDevice, NodeEditor, Nodes, SingleIO};
 
 /// Extension/Interpreter that implements a node editor,
@@ -23,9 +17,9 @@ where
     T: NodeDevice,
 {
     node_device: T,
-    dropping: Vec<LinkId>,
-    connecting: Vec<Link>,
-    creating: Vec<Sequence>,
+    // dropping: Vec<LinkId>,
+    // connecting: Vec<Link>,
+    // creating: Vec<Sequence>,
     editor_context: imnodes::EditorContext,
     _imnodes: imnodes::Context,
     opened: bool,
@@ -57,9 +51,6 @@ where
         let node_extension = Self {
             editor_context,
             _imnodes,
-            creating: vec![],
-            connecting: vec![],
-            dropping: vec![],
             node_device,
             opened: false,
         };
@@ -92,35 +83,34 @@ where
     fn configure_app_world(world: &mut World) {
         world.register::<NodeContext>();
         world.register::<LinkContext>();
-        world.register::<ThunkContext>();
-    }
-
-    fn configure_app_systems(dispatcher: &mut specs::DispatcherBuilder) {
-        dispatcher.add(Linker {}, "", &[]);
     }
 
     fn on_ui(&'_ mut self, world: &specs::World, ui: &'_ imgui::Ui<'_>) {
-        let mut nodes = world.system_data::<Nodes>();
+        let mut nodes_data = world.system_data::<Nodes>();
 
         Window::new("Nodes")
-            .size([1920.0, 1080.0], imgui::Condition::Appearing)
+            .size([1600.0, 900.0], imgui::Condition::Appearing)
             .build(ui, || {
+                let frame_padding = ui.push_style_var(StyleVar::FramePadding([8.0, 5.0]));
                 let detatch = self
                     .editor_context
                     .push(AttributeFlag::EnableLinkDetachWithDragClick);
 
                 if ui.button("Rearrange nodes") {
-                    nodes.rearrange();
+                    nodes_data.rearrange();
                 }
 
-                let outer_scope = editor(&mut self.editor_context, |mut editor_scope| {
+                ui.spacing();
+                ui.separator();
+
+                let _ = editor(&mut self.editor_context, |mut editor_scope| {
                     if !self.opened {
                         self.opened = true;
-                        nodes.rearrange();
+                        nodes_data.rearrange();
                     }
 
                     editor_scope.add_mini_map(MiniMapLocation::BottomRight);
-                    let (nodes, links) = nodes.scan_nodes();
+                    let (nodes, links) = nodes_data.scan_nodes();
 
                     for (node_context, node) in nodes {
                         let NodeContext { node_id, .. } = node_context;
@@ -131,7 +121,7 @@ where
                                 .render(node_scope, &node_context, &node, ui)
                                 .take()
                             {
-                                self.node_device.on_event(world, event);
+                                self.node_device.on_event(&mut nodes_data, event);
                             }
                         });
                     }
@@ -149,91 +139,18 @@ where
                     }
                 });
 
-                if let Some(link) = outer_scope.links_created() {
-                    self.connecting.push(link);
-                }
+                // if let Some(link) = outer_scope.links_created() {
+                //     self.connecting.push(link);
+                // }
 
-                if let Some(dropped) = outer_scope.get_dropped_link() {
-                    self.dropping.push(dropped);
-                }
+                // if let Some(dropped) = outer_scope.get_dropped_link() {
+                //     self.dropping.push(dropped);
+                // }
 
                 detatch.pop();
+                frame_padding.end();
             });
 
-        nodes.node_editor().display_ui(ui);
-    }
-
-    fn on_run(&'_ mut self, world: &specs::World) {
-        let mut node_editor = world.write_resource::<NodeEditor>();
-
-        while let Some(link) = self.connecting.pop() {
-            let Link {
-                start_node,
-                end_node,
-                ..
-            } = link;
-            let from = node_editor
-                .node_index()
-                .get(&start_node)
-                .and_then(|s| Some(s.clone()));
-            let to = node_editor
-                .node_index()
-                .get(&end_node)
-                .and_then(|s| Some(s.clone()));
-
-            if let (Some(from), Some(to)) = (from, to) {
-                //  node_editor.add_link(world, &from, &to, link.clone());
-            }
-        }
-
-        while let Some(drop) = self.dropping.pop() {
-            node_editor.remove_link_by_id(world, drop);
-        }
-
-        // while let Some(create) = self.creating.pop() {
-        //     node_editor.add_node::<T>(world, &create);
-        // }
-
-        self.run_now(world);
-    }
-}
-
-impl<'a, T> System<'a> for NodeExtension<T>
-where
-    T: NodeDevice,
-{
-    type SystemData = (
-        Entities<'a>,
-        ReadStorage<'a, Sequence>,
-        ReadStorage<'a, Connection>,
-        ReadStorage<'a, NodeContext>,
-    );
-
-    fn run(&mut self, (entities, sequences, connections, nodes): Self::SystemData) {
-        // Iterate over entities with a sequence/connection but no node context
-        for (entity, sequence, _, node) in
-            (&entities, &sequences, &connections, nodes.maybe()).join()
-        {
-            if let None = node {
-                // The first entity in a sequence will have the connection/sequence components
-                let mut clone = sequence.clone();
-                clone.push(entity);
-                self.creating.push(clone);
-            }
-        }
-    }
-}
-
-struct Linker;
-
-impl<'a> System<'a> for Linker {
-    type SystemData = (WriteStorage<'a, Connection>, WriteStorage<'a, Sequence>);
-
-    fn run(&mut self, (mut connections, mut sequences): Self::SystemData) {
-        for (connection, sequence) in (&mut connections, &mut sequences).join() {
-            // if let (_, Some(to)) = connection.connection() {
-            //     sequence.set_cursor(to);
-            // }
-        }
+        nodes_data.node_editor().display_ui(ui);
     }
 }

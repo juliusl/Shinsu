@@ -1,7 +1,5 @@
-use std::collections::BTreeSet;
-
 use imnodes::{AttributeId, IdentifierGenerator, InputPinId, Link, NodeId, OutputPinId};
-use lifec::prelude::{Component, DenseVecStorage, Sequence};
+use lifec::prelude::{Component, DenseVecStorage};
 use specs::Entity;
 
 /// Struct for the node state of a sequence,

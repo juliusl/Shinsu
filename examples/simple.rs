@@ -140,7 +140,7 @@ fn main() {
         nodes.rearrange();
     });
 
-    host.open::<Test, _>(1920.0, 1080.0, node_extension)
+    host.open::<Test, _>(node_extension)
 }
 
 #[derive(Default)]
@@ -155,7 +155,7 @@ impl Listener for Test {
         Test {}
     }
     fn on_status_update(&mut self, _: &StatusUpdate) {}
-    fn on_completed_event(&mut self, e: &Entity) {}
+    fn on_completed_event(&mut self, _: &Entity) {}
     fn on_runmd(&mut self, _: &RunmdFile) {}
     fn on_operation(&mut self, _: Operation) {}
     fn on_error_context(&mut self, _: &ErrorContext) {}
