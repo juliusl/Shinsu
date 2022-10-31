@@ -1,6 +1,7 @@
 use imgui::Ui;
-use imnodes::{IdentifierGenerator, NodeScope};
-use lifec::prelude::{Entity, Sequence, ThunkContext, World};
+use imnodes::NodeScope;
+use lifec::prelude::{Entity, Node};
+use specs::World;
 
 use crate::NodeContext;
 
@@ -18,17 +19,11 @@ pub trait NodeDevice {
         &self,
         scope: NodeScope,
         node_context: &NodeContext,
-        thunk_context: &ThunkContext,
+        node: &Node,
         ui: &Ui,
     ) -> Option<NodeEvent>;
 
-    /// Handles a node event,
-    ///
-    fn on_event(&self, world: &World, node_event: NodeEvent);
-
-    /// Creates a new node context,
-    ///
-    fn create(world: &World, sequence: &Sequence, idgen: &mut IdentifierGenerator) -> NodeContext;
+    fn on_event(&mut self, world: &World, node_event: NodeEvent);
 }
 
 /// Enumeration of node events that can be returned by render,
@@ -36,5 +31,5 @@ pub trait NodeDevice {
 pub enum NodeEvent {
     /// Emitted to indicated a button on the node was pressed,
     /// Returns the name of the button, as well as the entity of node_context,
-    ButtonPress { name: String, entity: Entity },
+    ButtonPress { name: &'static str, entity: Entity },
 }

@@ -5,14 +5,17 @@ use lifec::prelude::{Connection, Component, DenseVecStorage};
 ///
 #[derive(Component, Clone, Debug)]
 #[storage(DenseVecStorage)]
-pub struct LinkContext(
-    pub Connection, 
-    pub Option<Link>, 
-    pub Option<LinkId>
-);
+pub struct LinkContext {
+    pub link: Link,
+    pub link_id: LinkId,
+}
 
 impl LinkContext {
-    pub fn link_id(&self) -> Option<LinkId> {
-        self.2.clone()
+    pub fn link(&self) -> Link {
+        self.link
+    }
+
+    pub fn link_id(&self) -> LinkId {
+        self.link_id
     }
 }

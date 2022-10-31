@@ -1,11 +1,18 @@
-use imnodes::{editor, AttributeFlag, Link, LinkId, MiniMapLocation};
-use lifec::prelude::{
-    AttributeGraph, Block, Connection, Entities, Extension, Interpreter, Join, ReadStorage,
-    Sequence, System, ThunkContext, World, WorldExt, WriteStorage,
-};
-use specs::RunNow;
+use std::collections::HashMap;
 
-use crate::{LinkContext, NodeContext, NodeDevice, NodeEditor, SingleIO};
+use atlier::system::App;
+use imgui::Window;
+use imnodes::{editor, AttributeFlag, Link, LinkId, MiniMapLocation};
+use lifec::{
+    engine::NodeCommandHandler,
+    prelude::{
+        Block, Connection, Entities, Extension, Interpreter, Join, ReadStorage, Sequence, System,
+        ThunkContext, World, WorldExt, WriteStorage,
+    },
+};
+use specs::{RunNow, Write};
+
+use crate::{LinkContext, NodeContext, NodeDevice, NodeEditor, Nodes, SingleIO};
 
 /// Extension/Interpreter that implements a node editor,
 ///
@@ -21,6 +28,7 @@ where
     creating: Vec<Sequence>,
     editor_context: imnodes::EditorContext,
     _imnodes: imnodes::Context,
+    opened: bool,
 }
 
 impl<T> Interpreter for NodeExtension<T>
@@ -34,9 +42,7 @@ where
         world.insert(node_editor);
     }
 
-    fn interpret(&self, _world: &World, _block: &Block) {
-        // TODO
-    }
+    fn interpret(&self, _world: &World, _block: &Block) {}
 }
 
 impl<T> NodeExtension<T>
@@ -55,6 +61,7 @@ where
             connecting: vec![],
             dropping: vec![],
             node_device,
+            opened: false,
         };
 
         node_extension
@@ -93,64 +100,67 @@ where
     }
 
     fn on_ui(&'_ mut self, world: &specs::World, ui: &'_ imgui::Ui<'_>) {
-        let nodes = world.read_component::<NodeContext>();
-        let links = world.read_component::<LinkContext>();
-        let thunks = world.read_component::<ThunkContext>();
-        let graphs = world.read_component::<AttributeGraph>();
-        let blocks = world.read_component::<Block>();
+        let mut nodes = world.system_data::<Nodes>();
 
-        let detatch = self
-            .editor_context
-            .push(AttributeFlag::EnableLinkDetachWithDragClick);
+        Window::new("Nodes")
+            .size([1920.0, 1080.0], imgui::Condition::Appearing)
+            .build(ui, || {
+                let detatch = self
+                    .editor_context
+                    .push(AttributeFlag::EnableLinkDetachWithDragClick);
 
-        let outer_scope = editor(&mut self.editor_context, |mut editor_scope| {
-            editor_scope.add_mini_map(MiniMapLocation::BottomRight);
+                if ui.button("Rearrange nodes") {
+                    nodes.rearrange();
+                }
 
-            for node in nodes.join() {
-                if let NodeContext{ node_id: Some(node_id), sequence: (sequence, ..) } = node {
-                    editor_scope.add_node(*node_id, |node_scope| {
-                        if let Some(from) = sequence.last() {
-                            if let (Some(tc), Some(graph), Some(block)) =
-                                (thunks.get(from), graphs.get(from), blocks.get(from))
+                let outer_scope = editor(&mut self.editor_context, |mut editor_scope| {
+                    if !self.opened {
+                        self.opened = true;
+                        nodes.rearrange();
+                    }
+
+                    editor_scope.add_mini_map(MiniMapLocation::BottomRight);
+                    let (nodes, links) = nodes.scan_nodes();
+
+                    for (node_context, node) in nodes {
+                        let NodeContext { node_id, .. } = node_context;
+
+                        editor_scope.add_node(node_id, |node_scope| {
+                            if let Some(event) = self
+                                .node_device
+                                .render(node_scope, &node_context, &node, ui)
+                                .take()
                             {
-                                if let Some(event) = self.node_device.render(
-                                    node_scope,
-                                    node,
-                                    // TODO -- This could probably be improved
-                                    &tc.with_state(graph.clone()).with_block(block),
-                                    ui,
-                                ).take() {
-                                    self.node_device.on_event(world, event);
-                                }
+                                self.node_device.on_event(world, event);
                             }
-                        }
-                    });
+                        });
+                    }
+
+                    for LinkContext {
+                        link:
+                            Link {
+                                start_pin, end_pin, ..
+                            },
+                        link_id,
+                        ..
+                    } in links
+                    {
+                        editor_scope.add_link(link_id, end_pin, start_pin);
+                    }
+                });
+
+                if let Some(link) = outer_scope.links_created() {
+                    self.connecting.push(link);
                 }
-            }
 
-            for link in links.join() {
-                if let LinkContext(
-                    ..,
-                    Some(Link {
-                        start_pin, end_pin, ..
-                    }),
-                    Some(link_id),
-                ) = link
-                {
-                    editor_scope.add_link(*link_id, *end_pin, *start_pin);
+                if let Some(dropped) = outer_scope.get_dropped_link() {
+                    self.dropping.push(dropped);
                 }
-            }
-        });
 
-        if let Some(link) = outer_scope.links_created() {
-            self.connecting.push(link);
-        }
+                detatch.pop();
+            });
 
-        if let Some(dropped) = outer_scope.get_dropped_link() {
-            self.dropping.push(dropped);
-        }
-
-        detatch.pop();
+        nodes.node_editor().display_ui(ui);
     }
 
     fn on_run(&'_ mut self, world: &specs::World) {
@@ -172,7 +182,7 @@ where
                 .and_then(|s| Some(s.clone()));
 
             if let (Some(from), Some(to)) = (from, to) {
-                node_editor.add_link(world, &from, &to, link.clone());
+                //  node_editor.add_link(world, &from, &to, link.clone());
             }
         }
 
@@ -180,9 +190,9 @@ where
             node_editor.remove_link_by_id(world, drop);
         }
 
-        while let Some(create) = self.creating.pop() {
-            node_editor.add_node::<T>(world, &create);
-        }
+        // while let Some(create) = self.creating.pop() {
+        //     node_editor.add_node::<T>(world, &create);
+        // }
 
         self.run_now(world);
     }
@@ -221,9 +231,9 @@ impl<'a> System<'a> for Linker {
 
     fn run(&mut self, (mut connections, mut sequences): Self::SystemData) {
         for (connection, sequence) in (&mut connections, &mut sequences).join() {
-            if let (_, Some(to)) = connection.connection() {
-                sequence.set_cursor(to);
-            }
+            // if let (_, Some(to)) = connection.connection() {
+            //     sequence.set_cursor(to);
+            // }
         }
     }
 }

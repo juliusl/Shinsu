@@ -1,6 +1,8 @@
+use std::collections::BTreeSet;
+
 use imgui::Ui;
 use imnodes::PinShape;
-use lifec::prelude::{AttributeIndex, ThunkContext, Sequence};
+use lifec::prelude::{AttributeIndex, Node, Sequence, ThunkContext};
 use specs::World;
 
 use crate::{NodeContext, NodeDevice};
@@ -19,44 +21,53 @@ impl NodeDevice for SingleIO {
         &self,
         mut scope: imnodes::NodeScope,
         nc: &NodeContext,
-        tc: &ThunkContext,
+        node: &Node,
         ui: &Ui,
     ) -> Option<NodeEvent> {
-        if let Some(node_title) = tc.search().find_symbol("node_title") {
+        if let Some(state) = node.appendix.state(&nc.entity) {
+            let name = node.appendix.name(&nc.entity).unwrap_or("<unnamed>");
             scope.add_titlebar(|| {
-                ui.text(node_title);
+                ui.text(format!("{}.{name}", state.control_symbol));
             });
-            let thunk_symbol = tc
-                .state()
-                .find_symbol("plugin_symbol")
-                .unwrap_or("entity".to_string());
-            let mut node_width = 75.0;
-            if thunk_symbol.len() > 24 {
-                node_width = 150.0;
-            }
 
-            // Render sequence config 
-            if let NodeContext {
-                sequence: (_, Some(input_pin), Some(output_pin), Some(attribute_id)),
+            let node_width = 75.0;
+            // if thunk_symbol.len() > 24 {
+            //     node_width = 150.0;
+            // }
+
+            // Render sequence config
+            let NodeContext {
+                input_pin_id,
+                output_pin_id,
+                attribute_id,
                 ..
-            } = nc
+            } = nc;
             {
-                scope.attribute(*attribute_id, || {
-                    ui.text(format!("{} {}", tc.block().name(), thunk_symbol));
+                scope.attribute(*attribute_id, || match node.status {
+                    lifec::prelude::NodeStatus::Event(event_status) => {
+                        ui.text(format!("{event_status}"));
+                    }
+                    _ => ui.text("node"),
                 });
-                scope.add_input(*input_pin, PinShape::Circle, || {
-                    let label = tc
-                        .search()
-                        .find_symbol("node_input_label")
-                        .unwrap_or("start".to_string());
-                    ui.text(label);
+
+                scope.add_input(*input_pin_id, PinShape::Circle, || {
+                    // let label = tc
+                    //     .search()
+                    //     .find_symbol("node_input_label")
+                    //     .unwrap_or("start".to_string());
+
+                    if let Some(transition) = node.transition.as_ref() {
+                        ui.text(format!("{:?}", transition));
+                    } else {
+                        ui.text("input");
+                    }
                 });
 
                 ui.same_line();
-                scope.add_output(*output_pin, PinShape::CircleFilled, || {
+                scope.add_output(*output_pin_id, PinShape::CircleFilled, || {
                     ui.same_line();
                     ui.set_next_item_width(node_width);
-                    ui.label_text("cursor", "");
+                    ui.label_text("Cursor", "");
                 });
             }
         }
@@ -64,23 +75,7 @@ impl NodeDevice for SingleIO {
         None
     }
 
-    fn create(
-        _: &World,
-        sequence: &Sequence,
-        idgen: &mut imnodes::IdentifierGenerator,
-    ) -> NodeContext {
-        NodeContext {
-            node_id: Some(idgen.next_node()),
-            sequence: (
-                sequence.clone(),
-                Some(idgen.next_input_pin()),
-                Some(idgen.next_output_pin()),
-                Some(idgen.next_attribute()),
-            ),
-        }
-    }
-
-    fn on_event(&self, _: &World, _: super::NodeEvent) {
+    fn on_event(&mut self, world: &World, node_event: NodeEvent) {
         todo!()
     }
 }
